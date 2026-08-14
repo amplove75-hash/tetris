@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>테트리스 | Tetris</title>
+<style>
+  :root{
+    --bg:#0f1220;
+    --panel:#181c2f;
+    --panel-2:#1f2440;
+    --border:#31385c;
+    --text:#e8eaf6;
+    --muted:#8b91b8;
+    --accent:#7c8cff;
+    --danger:#ff5c72;
+    --good:#4ade80;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;
+    min-height:100%;
+    background:radial-gradient(1200px 800px at 50% -10%, #1a1f3a 0%, #0b0d18 60%, #08090f 100%);
+    color:var(--text);
+    font-family:'Segoe UI', 'Malgun Gothic', system-ui, -apple-system, sans-serif;
+  }
+  body{
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    overflow-y:auto;
+    overflow-x:hidden;
+  }
+  .app{
+    display:flex;
+    flex-wrap:wrap;
+    gap:24px;
+    align-items:flex-start;
+    justify-content:center;
+    padding:20px;
+  }
+  h1{
+    margin:0 0 12px 0;
+    font-size:22px;
+    letter-spacing:2px;
+    text-align:center;
+    background:linear-gradient(90deg,#7c8cff,#ff5c72);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+  }
+  .board-wrap{
+    position:relative;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:12px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+  canvas{
+    display:block;
+    background:#0a0c18;
+    border-radius:8px;
+    border:1px solid #2a2f52;
+  }
+  .side{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    width:200px;
+  }
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:14px 16px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.35);
+  }
+  .panel h2{
+    margin:0 0 8px 0;
+    font-size:11px;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    color:var(--muted);
+    font-weight:600;
+  }
+  .stat-value{
+    font-size:26px;
+    font-weight:700;
+    font-variant-numeric:tabular-nums;
+  }
+  .stat-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+  }
+  #nextCanvas{
+    display:block;
+    margin:0 auto;
+    background:#0a0c18;
+    border-radius:8px;
+    border:1px solid #2a2f52;
+  }
+  .controls-list{
+    font-size:12.5px;
+    color:var(--muted);
+    line-height:1.9;
+  }
+  .controls-list b{
+    color:var(--text);
+    background:var(--panel-2);
+    padding:1px 7px;
+    border-radius:5px;
+    border:1px solid var(--border);
+    font-family:monospace;
+    font-weight:600;
+  }
+  button{
+    width:100%;
+    padding:10px;
+    border-radius:9px;
+    border:1px solid var(--border);
+    background:var(--panel-2);
+    color:var(--text);
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    transition:transform .08s ease, background .15s ease;
+  }
+  button:hover{ background:#262c4d; }
+  button:active{ transform:scale(0.97); }
+  .overlay{
+    position:absolute;
+    inset:12px;
+    background:rgba(8,9,16,0.86);
+    backdrop-filter:blur(3px);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    border-radius:8px;
+    gap:10px;
+    text-align:center;
+    padding:20px;
+  }
+  .overlay.hidden{ display:none; }
+  .overlay .big{
+    font-size:24px;
+    font-weight:800;
+    letter-spacing:1px;
+  }
+  .overlay .small{
+    color:var(--muted);
+    font-size:13px;
+  }
+  .badge{
+    display:inline-block;
+    padding:2px 10px;
+    border-radius:20px;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:0.5px;
+  }
+  .badge.good{ background:rgba(74,222,128,0.15); color:var(--good); border:1px solid rgba(74,222,128,0.3);}
+  .badge.danger{ background:rgba(255,92,114,0.15); color:var(--danger); border:1px solid rgba(255,92,114,0.3);}
+  @media (max-width: 640px){
+    .app{ flex-direction:column; align-items:center; }
+    .side{ flex-direction:row; flex-wrap:wrap; width:100%; max-width:340px; }
+    .panel{ flex:1; min-width:120px; }
+  }
+  .hint{
+    margin-top:10px;
+    font-size:11.5px;
+    color:var(--muted);
+    text-align:center;
+    line-height:1.5;
+  }
+  .touch-controls{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:8px;
+    margin-top:12px;
+  }
+  .tc-btn{
+    grid-column:span 1;
+    padding:16px 0;
+    font-size:22px;
+    border-radius:10px;
+    border:1px solid var(--border);
+    background:var(--panel-2);
+    color:var(--text);
+    cursor:pointer;
+    user-select:none;
+    -webkit-user-select:none;
+    touch-action:none;
+    transition:background .1s ease, transform .08s ease;
+  }
+  .tc-btn:active{ background:#2f3660; transform:scale(0.95); }
+  #btnRotate{ grid-column:1/-1; font-size:20px; }
+  #btnHardDrop{ grid-column:1/-1; font-size:15px; font-weight:700; padding:12px 0; }
+  #musicBtn{ margin-top:8px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div>
+    <h1>TETRIS</h1>
+    <div class="board-wrap">
+      <canvas id="board" width="300" height="600"></canvas>
+      <div class="overlay" id="overlay">
+        <div class="big" id="overlayTitle">테트리스</div>
+        <div class="small" id="overlaySub">시작하려면 아래 버튼을 누르거나 Space를 누르세요</div>
+        <button id="overlayBtn" style="width:140px;margin-top:8px;">시작하기</button>
+      </div>
+    </div>
+
+    <div class="touch-controls" id="touchControls">
+      <button class="tc-btn" id="btnRotate" type="button">⟳ 회전</button>
+      <button class="tc-btn" id="btnLeft" type="button">◀</button>
+      <button class="tc-btn" id="btnDown" type="button">▼</button>
+      <button class="tc-btn" id="btnRight" type="button">▶</button>
+      <button class="tc-btn" id="btnHardDrop" type="button">⤓ 즉시 낙하 (하드 드롭)</button>
+    </div>
+    <div class="hint">키보드(방향키/스페이스)가 안 먹히면 화면을 한 번 클릭한 뒤 다시 시도하거나, 위 버튼으로 조작하세요.</div>
+  </div>
+
+  <div class="side">
+    <div class="panel">
+      <h2>점수</h2>
+      <div class="stat-value" id="score">0</div>
+    </div>
+    <div class="panel">
+      <div class="stat-row">
+        <div>
+          <h2>레벨</h2>
+          <div class="stat-value" id="level" style="font-size:20px;">1</div>
+        </div>
+        <div>
+          <h2>라인</h2>
+          <div class="stat-value" id="lines" style="font-size:20px;">0</div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>다음 블록</h2>
+      <canvas id="nextCanvas" width="120" height="90"></canvas>
+    </div>
+    <div class="panel">
+      <h2>최고 점수</h2>
+      <div class="stat-value" id="highScore" style="font-size:20px;">0</div>
+    </div>
+    <div class="panel">
+      <h2>조작법</h2>
+      <div class="controls-list">
+        <div><b>←</b> <b>→</b> 이동</div>
+        <div><b>↓</b> 소프트 드롭</div>
+        <div><b>↑</b> 회전</div>
+        <div><b>Space</b> 하드 드롭</div>
+        <div><b>P</b> 일시정지</div>
+      </div>
+    </div>
+    <button id="pauseBtn">일시정지</button>
+    <button id="musicBtn">🔊 음악 끄기</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---- Config ----
+  const COLS = 10, ROWS = 20, CELL = 30;
+  const boardCanvas = document.getElementById('board');
+  const ctx = boardCanvas.getContext('2d');
+  const nextCanvas = document.getElementById('nextCanvas');
+  const nctx = nextCanvas.getContext('2d');
+
+  const scoreEl = document.getElementById('score');
+  const levelEl = document.getElementById('level');
+  const linesEl = document.getElementById('lines');
+  const highScoreEl = document.getElementById('highScore');
+  const overlay = document.getElementById('overlay');
+  const overlayTitle = document.getElementById('overlayTitle');
+  const overlaySub = document.getElementById('overlaySub');
+  const overlayBtn = document.getElementById('overlayBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const musicBtn = document.getElementById('musicBtn');
+  const btnLeft = document.getElementById('btnLeft');
+  const btnRight = document.getElementById('btnRight');
+  const btnDown = document.getElementById('btnDown');
+  const btnRotate = document.getElementById('btnRotate');
+  const btnHardDrop = document.getElementById('btnHardDrop');
+
+  // ---- Audio: procedurally generated background music (no external files) ----
+  // Plays a short, freely-reusable 8-bit style loop based on the public-domain
+  // Russian folk tune "Korobeiniki" using the Web Audio API (square-wave synth).
+  let audioCtx = null;
+  let masterGain = null;
+  let musicEnabled = true;
+  let musicLoopTimer = null;
+
+  const NOTE_FREQ = {
+    A3:220.00, B3:246.94, C4:261.63, D4:293.66, E4:329.63, F4:349.23, G4:392.00,
+    A4:440.00, B4:493.88, C5:523.25, D5:587.33, E5:659.25, F5:698.46, G5:783.99,
+    A5:880.00, R:0
+  };
+  const MELODY = [
+    ['E5',1],['B4',0.5],['C5',0.5],['D5',1],['C5',0.5],['B4',0.5],
+    ['A4',1],['A4',0.5],['C5',0.5],['E5',1],['D5',0.5],['C5',0.5],
+    ['B4',1],['B4',0.5],['C5',0.5],['D5',1],['E5',1],
+    ['C5',1],['A4',1],['A4',1],['R',1],
+    ['D5',1],['F5',0.5],['A5',0.5],['G5',1],['F5',0.5],['E5',0.5],
+    ['C5',1],['E5',0.5],['D5',0.5],['C5',1],['B4',0.5],['B4',0.5],
+    ['C5',0.5],['D5',1],['E5',1],
+    ['C5',1],['A4',1],['A4',1],['R',1]
+  ];
+  const BPM = 148;
+  const BEAT_SEC = 60 / BPM;
+
+  function ensureAudio(){
+    if(audioCtx) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return;
+    audioCtx = new AC();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = musicEnabled ? 0.06 : 0;
+    masterGain.connect(audioCtx.destination);
+  }
+
+  function playNote(freq, startTime, dur){
+    if(!audioCtx || !freq) return;
+    const osc = audioCtx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(freq, startTime);
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.0001, startTime);
+    g.gain.linearRampToValueAtTime(1, startTime + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.max(dur * 0.92, 0.03));
+    osc.connect(g).connect(masterGain);
+    osc.start(startTime);
+    osc.stop(startTime + dur + 0.05);
+  }
+
+  function scheduleMelodyLoop(){
+    if(!audioCtx) return;
+    let t = audioCtx.currentTime + 0.05;
+    let total = 0;
+    for(const [note, beats] of MELODY){
+      const dur = beats * BEAT_SEC;
+      playNote(NOTE_FREQ[note], t, dur);
+      t += dur;
+      total += dur;
+    }
+    musicLoopTimer = setTimeout(scheduleMelodyLoop, total * 1000);
+  }
+
+  function startMusic(){
+    ensureAudio();
+    if(!audioCtx) return;
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    if(musicLoopTimer) return; // already looping
+    scheduleMelodyLoop();
+  }
+
+  function toggleMusic(){
+    musicEnabled = !musicEnabled;
+    ensureAudio();
+    if(audioCtx){
+      if(audioCtx.state === 'suspended') audioCtx.resume();
+      masterGain.gain.setTargetAtTime(musicEnabled ? 0.06 : 0, audioCtx.currentTime, 0.05);
+    }
+    if(musicEnabled) startMusic();
+    musicBtn.textContent = musicEnabled ? '🔊 음악 끄기' : '🔇 음악 켜기';
+  }
+
+  function playLineClearSFX(){
+    if(!audioCtx) return;
+    const t = audioCtx.currentTime;
+    playNote(NOTE_FREQ.C5, t, 0.08);
+    playNote(NOTE_FREQ.E5, t + 0.06, 0.08);
+    playNote(NOTE_FREQ.G5, t + 0.12, 0.14);
+  }
+
+  function playGameOverSFX(){
+    if(!audioCtx) return;
+    const t = audioCtx.currentTime;
+    ['A4','F4','D4','C4'].forEach((n,i) => playNote(NOTE_FREQ[n], t + i*0.15, 0.2));
+  }
+
+  const COLORS = {
+    I: '#4dd8ff',
+    J: '#4d7bff',
+    L: '#ff9f43',
+    O: '#ffe14d',
+    S: '#4dff88',
+    T: '#c04dff',
+    Z: '#ff4d6a'
+  };
+
+  const SHAPES = {
+    I: [
+      [[0,1],[1,1],[2,1],[3,1]],
+      [[2,0],[2,1],[2,2],[2,3]],
+      [[0,2],[1,2],[2,2],[3,2]],
+      [[1,0],[1,1],[1,2],[1,3]]
+    ],
+    J: [
+      [[0,0],[0,1],[1,1],[2,1]],
+      [[1,0],[2,0],[1,1],[1,2]],
+      [[0,1],[1,1],[2,1],[2,2]],
+      [[1,0],[1,1],[0,2],[1,2]]
+    ],
+    L: [
+      [[2,0],[0,1],[1,1],[2,1]],
+      [[1,0],[1,1],[1,2],[2,2]],
+      [[0,1],[1,1],[2,1],[0,2]],
+      [[0,0],[1,0],[1,1],[1,2]]
+    ],
+    O: [
+      [[1,0],[2,0],[1,1],[2,1]],
+      [[1,0],[2,0],[1,1],[2,1]],
+      [[1,0],[2,0],[1,1],[2,1]],
+      [[1,0],[2,0],[1,1],[2,1]]
+    ],
+    S: [
+      [[1,0],[2,0],[0,1],[1,1]],
+      [[1,0],[1,1],[2,1],[2,2]],
+      [[1,1],[2,1],[0,2],[1,2]],
+      [[0,0],[0,1],[1,1],[1,2]]
+    ],
+    T: [
+      [[1,0],[0,1],[1,1],[2,1]],
+      [[1,0],[1,1],[2,1],[1,2]],
+      [[0,1],[1,1],[2,1],[1,2]],
+      [[1,0],[0,1],[1,1],[1,2]]
+    ],
+    Z: [
+      [[0,0],[1,0],[1,1],[2,1]],
+      [[2,0],[1,1],[2,1],[1,2]],
+      [[0,1],[1,1],[1,2],[2,2]],
+      [[1,0],[0,1],[1,1],[0,2]]
+    ]
+  };
+  const PIECE_TYPES = Object.keys(SHAPES);
+
+  // ---- State ----
+  let grid, current, next, score, level, linesCleared, gameOver, paused, started;
+  let dropInterval, lastTime, dropCounter;
+  // High score is kept in memory only for this session (no browser storage).
+  let highScore = 0;
+  highScoreEl.textContent = highScore;
+
+  function newGrid(){
+    const g = [];
+    for(let r=0;r<ROWS;r++){ g.push(new Array(COLS).fill(null)); }
+    return g;
+  }
+
+  function randomType(){
+    return PIECE_TYPES[Math.floor(Math.random()*PIECE_TYPES.length)];
+  }
+
+  function spawnPiece(type){
+    return { type, rotation:0, x:0, y:0 };
+  }
+
+  function cellsOf(piece){
+    return SHAPES[piece.type][piece.rotation].map(([cx,cy]) => [cx+piece.x, cy+piece.y]);
+  }
+
+  function collides(piece, dx, dy, rotOverride){
+    const rotation = rotOverride === undefined ? piece.rotation : rotOverride;
+    const cells = SHAPES[piece.type][rotation];
+    for(const [cx,cy] of cells){
+      const x = cx + piece.x + dx;
+      const y = cy + piece.y + dy;
+      if(x < 0 || x >= COLS || y >= ROWS) return true;
+      if(y >= 0 && grid[y][x]) return true;
+    }
+    return false;
+  }
+
+  function resetGame(){
+    grid = newGrid();
+    score = 0;
+    level = 1;
+    linesCleared = 0;
+    gameOver = false;
+    paused = false;
+    dropInterval = 1000;
+    dropCounter = 0;
+    lastTime = 0;
+    current = spawnPiece(randomType());
+    current.x = 3;
+    next = spawnPiece(randomType());
+    updateStats();
+  }
+
+  function updateStats(){
+    scoreEl.textContent = score;
+    levelEl.textContent = level;
+    linesEl.textContent = linesCleared;
+  }
+
+  function tryMove(dx, dy){
+    if(!collides(current, dx, dy)){
+      current.x += dx;
+      current.y += dy;
+      return true;
+    }
+    return false;
+  }
+
+  function tryRotate(){
+    const newRot = (current.rotation + 1) % 4;
+    // simple wall-kick attempts
+    const kicks = [0, -1, 1, -2, 2];
+    for(const k of kicks){
+      if(!collides(current, k, 0, newRot)){
+        current.x += k;
+        current.rotation = newRot;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function lockPiece(){
+    const cells = cellsOf(current);
+    for(const [x,y] of cells){
+      if(y < 0){
+        endGame();
+        return;
+      }
+      grid[y][x] = COLORS[current.type];
+    }
+    clearLines();
+    current = next;
+    current.x = 3;
+    current.y = 0;
+    next = spawnPiece(randomType());
+    if(collides(current, 0, 0)){
+      endGame();
+    }
+  }
+
+  function clearLines(){
+    let cleared = 0;
+    for(let r = ROWS-1; r >= 0; r--){
+      if(grid[r].every(c => c !== null)){
+        grid.splice(r,1);
+        grid.unshift(new Array(COLS).fill(null));
+        cleared++;
+        r++; // re-check same row index after shift
+      }
+    }
+    if(cleared > 0){
+      const points = [0, 100, 300, 500, 800][cleared] * level;
+      score += points;
+      linesCleared += cleared;
+      const newLevel = Math.floor(linesCleared / 10) + 1;
+      if(newLevel !== level){
+        level = newLevel;
+        dropInterval = Math.max(100, 1000 - (level-1) * 80);
+      }
+      updateStats();
+      playLineClearSFX();
+    }
+  }
+
+  function hardDrop(){
+    let dist = 0;
+    while(!collides(current, 0, 1)){
+      current.y++;
+      dist++;
+    }
+    score += dist * 2;
+    updateStats();
+    lockPiece();
+    dropCounter = 0;
+  }
+
+  function endGame(){
+    gameOver = true;
+    started = false;
+    if(score > highScore){
+      highScore = score;
+      highScoreEl.textContent = highScore;
+    }
+    playGameOverSFX();
+    overlayTitle.innerHTML = '게임 오버 <span class="badge danger">GAME OVER</span>';
+    overlaySub.textContent = '최종 점수: ' + score + '  ·  다시 시작하려면 버튼을 누르세요';
+    overlayBtn.textContent = '다시 시작';
+    overlay.classList.remove('hidden');
+  }
+
+  // ---- Rendering ----
+  function drawCell(c, x, y, color, size){
+    const px = x*size, py = y*size;
+    c.fillStyle = color;
+    c.fillRect(px+1, py+1, size-2, size-2);
+    c.fillStyle = 'rgba(255,255,255,0.25)';
+    c.fillRect(px+1, py+1, size-2, 4);
+    c.fillStyle = 'rgba(0,0,0,0.25)';
+    c.fillRect(px+1, py+size-5, size-2, 4);
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,boardCanvas.width, boardCanvas.height);
+    // grid background lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    for(let x=0;x<=COLS;x++){
+      ctx.beginPath();
+      ctx.moveTo(x*CELL,0);
+      ctx.lineTo(x*CELL, ROWS*CELL);
+      ctx.stroke();
+    }
+    for(let y=0;y<=ROWS;y++){
+      ctx.beginPath();
+      ctx.moveTo(0,y*CELL);
+      ctx.lineTo(COLS*CELL, y*CELL);
+      ctx.stroke();
+    }
+
+    // locked cells
+    for(let r=0;r<ROWS;r++){
+      for(let c=0;c<COLS;c++){
+        if(grid[r][c]) drawCell(ctx, c, r, grid[r][c], CELL);
+      }
+    }
+
+    if(!gameOver && current){
+      // ghost piece
+      let ghostY = current.y;
+      while(!collides(current, 0, ghostY - current.y + 1)){
+        ghostY++;
+      }
+      const ghostCells = SHAPES[current.type][current.rotation];
+      ctx.globalAlpha = 0.25;
+      for(const [cx,cy] of ghostCells){
+        const gy = cy + ghostY;
+        if(gy >= 0) drawCell(ctx, cx+current.x, gy, COLORS[current.type], CELL);
+      }
+      ctx.globalAlpha = 1;
+
+      // active piece
+      for(const [x,y] of cellsOf(current)){
+        if(y >= 0) drawCell(ctx, x, y, COLORS[current.type], CELL);
+      }
+    }
+  }
+
+  function drawNext(){
+    nctx.clearRect(0,0,nextCanvas.width, nextCanvas.height);
+    if(!next) return;
+    const cells = SHAPES[next.type][0];
+    const size = 22;
+    // center roughly
+    let minX=99,maxX=-99,minY=99,maxY=-99;
+    for(const [cx,cy] of cells){
+      minX=Math.min(minX,cx); maxX=Math.max(maxX,cx);
+      minY=Math.min(minY,cy); maxY=Math.max(maxY,cy);
+    }
+    const w = (maxX-minX+1)*size, h = (maxY-minY+1)*size;
+    const offX = (nextCanvas.width - w)/2 - minX*size;
+    const offY = (nextCanvas.height - h)/2 - minY*size;
+    for(const [cx,cy] of cells){
+      const px = cx*size + offX, py = cy*size + offY;
+      nctx.fillStyle = COLORS[next.type];
+      nctx.fillRect(px+1, py+1, size-2, size-2);
+      nctx.fillStyle = 'rgba(255,255,255,0.25)';
+      nctx.fillRect(px+1, py+1, size-2, 4);
+    }
+  }
+
+  // ---- Game loop ----
+  function update(time = 0){
+    if(!started || paused || gameOver){
+      lastTime = time;
+      requestAnimationFrame(update);
+      return;
+    }
+    const delta = time - lastTime;
+    lastTime = time;
+    dropCounter += delta;
+    if(dropCounter > dropInterval){
+      if(!tryMove(0,1)){
+        lockPiece();
+      }
+      dropCounter = 0;
+    }
+    draw();
+    drawNext();
+    requestAnimationFrame(update);
+  }
+
+  // ---- Input ----
+  // Shared action functions used by BOTH the keyboard handler and the
+  // on-screen buttons below, so the game is fully playable even in contexts
+  // where keyboard focus doesn't reach the page (e.g. an embedded preview).
+  function canAct(){
+    return started && !paused && !gameOver;
+  }
+  function doLeft(){ if(!canAct()) return; tryMove(-1,0); draw(); }
+  function doRight(){ if(!canAct()) return; tryMove(1,0); draw(); }
+  function doSoftDrop(){
+    if(!canAct()) return;
+    if(tryMove(0,1)){ score += 1; updateStats(); }
+    dropCounter = 0;
+    draw();
+  }
+  function doRotate(){ if(!canAct()) return; tryRotate(); draw(); }
+  function doHardDrop(){ if(!canAct()) return; hardDrop(); draw(); }
+
+  const keyState = {};
+  document.addEventListener('keydown', (e) => {
+    if(['ArrowLeft','ArrowRight','ArrowDown','ArrowUp',' ','p','P'].includes(e.key)){
+      e.preventDefault();
+    }
+    if(!started || gameOver) {
+      if(e.key === ' ' ) startGame();
+      return;
+    }
+    if(e.key === 'p' || e.key === 'P'){
+      togglePause();
+      return;
+    }
+    if(paused) return;
+
+    // Debounce only single-shot actions (rotate/hard drop) so holding the key
+    // doesn't spam them; left/right/down are allowed to use the browser's
+    // natural key-repeat so holding them keeps moving the piece.
+    const debounced = (e.key === 'ArrowUp' || e.key === ' ');
+    if(debounced){
+      if(keyState[e.key]) return;
+      keyState[e.key] = true;
+    }
+
+    switch(e.key){
+      case 'ArrowLeft': doLeft(); break;
+      case 'ArrowRight': doRight(); break;
+      case 'ArrowDown': doSoftDrop(); break;
+      case 'ArrowUp': doRotate(); break;
+      case ' ': doHardDrop(); break;
+    }
+  });
+  document.addEventListener('keyup', (e) => {
+    keyState[e.key] = false;
+  });
+
+  // On-screen buttons: work via click (mouse) and press-and-hold (pointer)
+  // so movement keeps repeating while the button is held down, same as
+  // holding an arrow key. These are the reliable fallback when keyboard
+  // input doesn't reach the page.
+  function bindHold(el, fn, delay = 180, interval = 60){
+    let repeatTimer = null, startDelay = null;
+    const start = (e) => {
+      e.preventDefault();
+      fn();
+      startDelay = setTimeout(() => {
+        repeatTimer = setInterval(fn, interval);
+      }, delay);
+    };
+    const stop = () => {
+      clearTimeout(startDelay);
+      clearInterval(repeatTimer);
+    };
+    el.addEventListener('pointerdown', start);
+    el.addEventListener('pointerup', stop);
+    el.addEventListener('pointerleave', stop);
+    el.addEventListener('pointercancel', stop);
+  }
+  function bindTap(el, fn){
+    el.addEventListener('click', (e) => { e.preventDefault(); fn(); });
+  }
+  bindHold(btnLeft, doLeft);
+  bindHold(btnRight, doRight);
+  bindHold(btnDown, doSoftDrop);
+  bindTap(btnRotate, doRotate);
+  bindTap(btnHardDrop, doHardDrop);
+  musicBtn.addEventListener('click', toggleMusic);
+
+  function togglePause(){
+    if(gameOver || !started) return;
+    paused = !paused;
+    pauseBtn.textContent = paused ? '계속하기' : '일시정지';
+    if(paused){
+      overlayTitle.textContent = '일시정지';
+      overlaySub.textContent = 'P 키 또는 버튼을 눌러 계속하세요';
+      overlayBtn.textContent = '계속하기';
+      overlay.classList.remove('hidden');
+    } else {
+      overlay.classList.add('hidden');
+    }
+  }
+
+  function startGame(){
+    resetGame();
+    started = true;
+    paused = false;
+    overlay.classList.add('hidden');
+    pauseBtn.textContent = '일시정지';
+    if(musicEnabled) startMusic();
+  }
+
+  overlayBtn.addEventListener('click', () => {
+    if(paused && started && !gameOver){
+      togglePause();
+    } else {
+      startGame();
+    }
+  });
+
+  pauseBtn.addEventListener('click', togglePause);
+
+  // touch support (basic swipe/tap) for mobile
+  let touchStartX=0, touchStartY=0, touchMoved=false;
+  boardCanvas.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    touchStartX = t.clientX; touchStartY = t.clientY; touchMoved = false;
+  }, {passive:true});
+  boardCanvas.addEventListener('touchmove', (e) => {
+    touchMoved = true;
+  }, {passive:true});
+  boardCanvas.addEventListener('touchend', (e) => {
+    if(!started || gameOver || paused) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStartX;
+    const dy = t.clientY - touchStartY;
+    if(!touchMoved || (Math.abs(dx) < 10 && Math.abs(dy) < 10)){
+      tryRotate();
+    } else if(Math.abs(dx) > Math.abs(dy)){
+      tryMove(dx > 0 ? 1 : -1, 0);
+    } else if(dy > 0){
+      hardDrop();
+    }
+    draw();
+  });
+
+  // ---- Init ----
+  grid = newGrid();
+  current = null;
+  next = null;
+  score = 0; level = 1; linesCleared = 0;
+  gameOver = false; paused = false; started = false;
+  updateStats();
+  draw();
+  requestAnimationFrame(update);
+})();
+</script>
+
+</body>
+</html>
